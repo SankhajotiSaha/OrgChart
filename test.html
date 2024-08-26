@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="UTF-8" />
+
+    <script src="https://unpkg.com/gojs"></script>
+    <style>
+      #canvasOverlay {
+        position: relative;
+        top: 0;
+        left: 0;
+        width: 200px; /* Adjust width as needed */
+        height: 200px; /* Adjust height as needed */
+        background-color: white; /* Set background color to match your canvas background */
+        z-index: 1; /* Make sure the overlay is above the canvas */
+      }
+    </style>
+     <script id="code">
+function init() {
+  myDiagram = new go.Diagram(
+    'myDiagramDiv', // create a Diagram for the HTML Div element
+    {
+      'animationManager.isEnabled': false,
+      'undoManager.isEnabled': true,
+      layout: new go.TreeLayout({
+          treeStyle: go.TreeStyle.LastParents,
+          arrangement: go.TreeArrangement.FixedRoots,
+          // properties for most of the tree:
+          angle: 90,
+          layerSpacing: 35,
+          // properties for the "last parents":
+          alternateAngle: 0,
+          alternateLayerSpacing: 35,
+          alternateAlignment: go.TreeAlignment.Start,
+          alternateNodeIndent: 10,
+          alternateNodeIndentPastParent: 1.0,
+          alternateNodeSpacing: 10,
+          alternateLayerSpacing: 30,
+          alternateLayerSpacingParentOverlap: 1.0,
+          alternatePortSpot: new go.Spot(0.01, 1, 10, 0),
+          alternateChildPortSpot: go.Spot.Left,
+        })
+    }
+  ); 
+  myDiagram.isReadOnly = true;
+   const colors = {
+    blue: '#103262',
+    background: '#F6F6F7',
+    gray: '#E5E5E5',
+    white: '#FFFFFF',
+    staffYellow: '#FDBB30',
+    staffRed: '#D82C0D'
+  };
+
+  const totalWidth = 340;
+
+  const findHeadShot = () => {
+    return 'https://www.google.com/url?sa=i&url=https%3A%2F%2Fsoundcloud.com%2Fuser-816269576&psig=AOvVaw1YEO33pW8x6rCQYS7rPDzy&ust=1720535555677000&source=images&cd=vfe&opi=89978449&ved=0CBEQjRxqFwoTCLjN4MfUl4cDFQAAAAAdAAAAABAE';
+  };
+
+  const buttonSize = 30;
+  const ExpandCollapseButton = go.GraphObject.make('Button', {
+    width: buttonSize, height: buttonSize,
+    'ButtonBorder.fill': 'transparent',
+    'ButtonBorder.stroke': 'transparent',
+    _buttonFillNormal: 'transparent',
+    _buttonStrokeNormal: 'transparent',
+    _buttonFillOver: colors.gray,
+    _buttonStrokeOver: 'transparent',
+    _buttonFillDisabled: 'transparent',
+    click:(e, btn) => {
+      console.log('test')
+      let group = btn.part;
+      if (group instanceof go.Adornment) group = group.adornedPart;
+      if (!(group instanceof go.Group)) return;
+      e.handled = true;
+      if (group.data.isExpanded) {
+        collapseGroup(group);
+      } else {
+        expandGroup(group);
+      }
+      myDiagram.model.set(group.data, "isExpanded", !group.data.isExpanded)
+    }
+  }).add(
+  new go.Picture({
+    height:buttonSize,
+    width:buttonSize,
+    imageStretch: go.GraphObject.Uniform, 
+    source: "https://pre-confluence.iter.org/download/attachments/526127600/groups_white.png?api=v2"   
+  }).bind('source', 'isExpanded', exp => exp 
+    ? "https://pre-confluence.iter.org/download/attachments/526127600/group_icon_gray.png?api=v2" 
+    : "https://pre-confluence.iter.org/download/attachments/526127600/groups_white.png?api=v2")
+);  
+
+// const ArrowButton = go.GraphObject.make('Button', {
+//     width: buttonSize, height: buttonSize,
+//     'ButtonBorder.fill': 'transparent',
+//     'ButtonBorder.stroke': 'transparent',
+//     _buttonFillNormal: 'transparent',
+//     _buttonStrokeNormal: 'transparent',
+//     _buttonFillOver: colors.gray,
+//     _buttonStrokeOver: 'transparent',
+//     _buttonFillDisabled: 'transparent',
+//     click:(e, btn) => {
+//       console.log('test')
+      
+//     }
+//   }).add(
+    
+//   new go.Shape({
+//       figure: 'LineDown', stroke: colors.white, width: 10, height: 10,
+//     }).bind('figure', 'isExpanded', (exp) => exp ? 'LineDown' : 'LineUp')
+// ) 
+
+const ArrowButton = go.GraphObject.make('Button', {
+  width: buttonSize, height: buttonSize,
+  'ButtonBorder.fill': 'transparent',
+  'ButtonBorder.stroke': 'transparent',
+  _buttonFillNormal: 'transparent',
+  _buttonStrokeNormal: 'transparent',
+  _buttonFillOver: colors.gray,
+  _buttonStrokeOver: 'transparent',
+  _buttonFillDisabled: 'transparent',
+  click: (e, btn) => {
+    let group = btn.part;
+    if (group instanceof go.Adornment) group = group.adornedPart;
+    if (!(group instanceof go.Group)) return;
+    e.handled = true;
+    if (group.data.isExpanded) {
+      collapseGroup(group);
+    } else {
+      expandGroup(group);
+    }
+    myDiagram.model.set(group.data, "isExpanded",!group.data.isExpanded)
+  }
+}).add(
+  new go.Shape({
+    figure: 'LineDown', stroke: colors.white, width: 10, height: 10,
+  }).bind('figure', 'isExpanded', (exp) => exp? 'LineDown' : 'LineUp')
+);
+
+
+myDiagram.groupTemplate = new go.Group('Vertical', {
+    layout: new go.GridLayout({
+      wrappingColumn: 1,
+      // groupHeads are first, then sort alphabetical by name
+      comparer: function (a, b) {
+        const an = a.data.name;
+        const bn = b.data.name;
+        if (a.data.groupHead && !b.data.groupHead) return -1;
+      if (!a.data.groupHead && b.data.groupHead) return 1;
+
+      if (a.data.groupAssistant && !b.data.groupAssistant) return -1;
+      if (!a.data.groupAssistant && b.data.groupAssistant) return 1;
+
+        if (an < bn)
+            return -1;
+        if (an > bn)
+            return 1;
+        return 0;
+      }
+    }),
+  }).add(
+    new go.Panel('Spot').add(
+      new go.Shape({ fill: colors.blue, strokeWidth: 0, width: totalWidth, height: 40 }),
+      new go.TextBlock({
+        alignment: go.Spot.Left,
+        alignmentFocus: new go.Spot(0, 0.5, -5, 0),
+        stroke: colors.white,
+        margin: 5,
+      }).bind('text', 'division'),
+      new go.Panel('Horizontal', {
+        alignment: go.Spot.Right,
+        alignmentFocus: new go.Spot(1, 0.5, 5, 0), // offset 5px from the right
+      }).add(
+        ExpandCollapseButton,
+        
+      ),
+
+      new go.Panel('Horizontal', {
+        alignment: go.Spot.Right,
+        alignmentFocus: new go.Spot(2, 0.5, 3, 0), // offset 5px from the right
+      }).add(         ArrowButton,
+        
+        
+      )
+ ),
+    new go.Placeholder({ margin: new go.Margin(4, 0) })
+  );
+
+
+  myDiagram.nodeTemplate = new go.Node('Spot')
+  .bindTwoWay('visible') // for group expand collapse
+  .add(
+    new go.Shape({
+      strokeWidth: 0,
+      fill: colors.background,
+      width: totalWidth,
+      height: 40,
+    }).bind('fill', 'color'),
+    new go.Shape({
+      width: 3,
+      stretch: go.Stretch.Vertical,
+      fill: colors.staffYellow,
+      strokeWidth: 0,
+      alignment: go.Spot.Left,
+    })
+    //.bind('fill', 'groupHead', (gHead) => gHead ? colors.staffRed : colors.staffYellow),
+    //.bind('fill', 'groupHead', (gHead) => gHead ? colors.staffYellow: colors.staffYellow),
+    .bind('fill', 'groupExt', (gExt) => gExt ? colors.staffRed: colors.staffYellow),
+    // Panel containing picture panel and text panel
+    new go.Panel('Horizontal', {
+      alignment: go.Spot.Left,
+      alignmentFocus: go.Spot.Left,
+    }).add(
+      // Panel containing a headshot
+      new go.Panel(go.Panel.Spot, {
+        isClipping: true,
+        margin: 6,
+      }).add(
+        new go.Shape('Circle', { desiredSize: new go.Size(20, 20), strokeWidth: 0 }),
+        new go.Picture({
+          name: 'PICTURE',
+          source:
+            'pic',
+          desiredSize: new go.Size(20, 20),
+        }).bind('source', 'pic')
+      ),
+      new go.Panel('Vertical', {
+        defaultAlignment: go.Spot.Left,
+      }).add(
+        new go.TextBlock({ margin: 1, font: '11px sans-serif', stroke: '#333' })
+        .bind( 'text', 'name')
+        .bind('font', 'groupHead', (e) => e ? 'bold 11px sans-serif' : '11px sans-serif'),
+        new go.TextBlock({ margin: 1, font: '11px sans-serif', stroke: '#333' })
+        .bind( 'text', 'title' )
+        .bind('font', 'groupHead', (e) => e ? 'bold 11px sans-serif' : '11px sans-serif')
+      )
+    )
+  );
+
+  myDiagram.linkTemplate = new go.Link({
+    routing: go.Routing.Orthogonal,
+  }).add(new go.Shape({ stroke: colors.gray, strokeWidth: 2.5 }));
+
+  function init() {
+  fetch('data.json')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.json();
+    })
+    .then(data => {
+      // Create the diagram model using the fetched data
+      myDiagram.model = new go.GraphLinksModel(data);
+      // ... rest of the init function ...
+    })
+    .catch(error => console.error('Error loading data:', error));
+}
+
+// Call the init function to fetch the data and set the model
+init();
+
+  expandToLevel(3);  // note that this matches the initial value for myLevelsSlider
+}
+
+function expandToLevel(level) {
+  myDiagram.commit(diag => {
+    diag.findTreeRoots().each(root => {
+      root.expandTree(level);  // make sure all nodes are expanded up to a particular depth level
+      root.collapseTree(level);  // and that nothing beyond that depth level is expanded
+    });
+  });
+}
+
+function showLevels() {
+  const val = parseFloat(document.getElementById('myLevelsSlider').value);
+  expandToLevel(val);
+}
+function collapseGroup(grp) {
+  grp.memberParts.each(m => {
+    if (m.data.groupHead) return; // do not collapse group heads
+    if (m instanceof go.Group) {
+      // Recursively collapse subgroups
+      collapseGroup(m);
+    } else {
+      myDiagram.model.set(m.data, "visible", false);
+
+    }
+  });}
+
+function collapseAllGroups() {
+  myDiagram.commit(diag => {
+    diag.findTopLevelGroups().each(grp => {
+      collapseGroup(grp);
+      myDiagram.model.set(grp.data, "isExpanded", false);
+    });
+  });
+  
+}
+
+function expandGroup(grp) {
+  grp.memberParts.each(m => {
+    if (m instanceof go.Group) {
+      // Recursively expand subgroups
+      expandGroup(m);
+      
+    }
+    myDiagram.model.set(m.data, "visible", true);
+  });
+}
+
+function expandAllGroups() {
+  myDiagram.commit(diag => {
+    diag.findTopLevelGroups().each(grp => {
+      expandGroup(grp);
+      
+      myDiagram.model.set(grp.data, "isExpanded", true);
+      diag.commandHandler.expandSubGraph(grp);
+    });
+  });
+}
+document.addEventListener('DOMContentLoaded', init);
+    </script>      
+<div id="sample">            <label>Showing: </label>
+        <select class="dropdown" id="myLevelsSlider" onchange="showLevels()"style = "background-color: black;color: white; padding: 4px; cursor: pointer;border-radius: 2px;font-size: 10px;">
+          <option value="1">Level 1</option>
+          <option value="2">Level 2</option>
+          <option value="3" selected>Level 3</option>
+          <option value="4">Level 4</option>
+        </select>        
+        <style>
+          .container {
+            width: 250px;
+            float: right;
+            padding: 10px;
+			margin-right: 20px;
+		}
+
+          .button-container {
+            display: flex;
+            justify-content: right;
+            margin-bottom: 15px;
+
+          }
+
+          button {
+            padding: 5px 5px;
+            margin: 0 5px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            background-color: white;
+            border: solid 2px #FDBB30;
+            float: right;
+          } 
+
+		.group1 {
+            border-left: 3px solid #FDBB30;
+            padding-left: 10px;
+            width: 170px;
+            height:30px;
+            margin: 2px;
+            padding-bottom: 4px;
+            float: right;
+            background-color: #F6F6F7;
+			align-items: center;
+			display: flex;
+          }
+
+        </style> <div class="container" >
+          <div class="button-container" >
+            <button onclick="collapseAllGroups()"><b>COLLAPSE ALL</b></button>
+            <button onclick="expandAllGroups()" ><b>EXPAND ALL</b></button>
+          </div>
+          <div class="group1">
+            <p>Staff</p>
+          </div>
+          <div class="group1" style =" border-left: 3px solid #D82C0D;">
+            <p>IPA or Interim</p>
+          </div>
+          <div class="group1" style =" border-left: 3px solid #F6F6F7; ">
+            <p> Members not shown </p>
+			<img src="https://pre-confluence.iter.org/download/attachments/526127600/multiple-users-silhouette.png" width= "20px" height = "20px" style = "padding-left:0px; padding-left:5px; align-items: center;"alt="icon">
+          </div>
+        </div>                  <div id="myDiagramDiv" style=" width: 100%; height: 1000px"><div id="canvasOverlay"></div></div>    </div>
+    </div>
+  </body>
+</html>
+
